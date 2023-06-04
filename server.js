@@ -40,12 +40,82 @@ app.get('/api/user', (req, res) => {
     })
 })
 
+app.post('/api/user/create', (req, res) => {
+    const { username, email, full_name, pass } = req.body;
+
+    const createNewProfile = (id) => {
+        connection.query(`INSERT INTO profile_data (full_name, email, account_id) VALUE ('${full_name}', '${email}', ${id})`, (err, result) => {
+            if (err) {
+                res.send({
+                    statusCode: 500,
+                    responseData: err
+                })
+            } else {
+                if (result.affectedRows > 0) {
+                    res.send({
+                        statusCode: 200,
+                        responseData: 'Sign Up Successfully'
+                    })
+                }
+            }
+        })
+    }
+
+    const createNewAccount = () => {
+        connection.query(`INSERT INTO account (username, pass, using_status) VALUE ('${username}', '${hashPass(pass)}', 0)`, (err, result) => {
+            if (err) {
+                res.send({
+                    statusCode: 500,
+                    responseData: err
+                })
+            } else {
+                if (result.affectedRows > 0) {
+                    const account_id = result.insertId;
+                    createNewProfile(account_id);
+                }
+            }
+        })
+    }
+
+    const checkExistedUsername = () => {
+        connection.query(`SELECT * FROM account WHERE username='${username}'`, (err, result) => {
+            if (err) {
+                res.send({
+                    statusCode: 500,
+                    responseData: err
+                })
+            } else {
+                if (result.length > 0) {
+                    res.send({
+                        statusCode: 400,
+                        responseData: 'Your username is existed. Please choose another username'
+                    })
+                } else {
+                    createNewAccount();
+                }
+            }
+        })
+    }
+
+    if (username.trim() === '' || email.trim() === '' || full_name.trim() === '' || pass.trim() === '') {
+        res.send({
+            statusCode: 500,
+            responseData: 'Please fill in all fields'
+        })
+    } else {
+        checkExistedUsername();
+    }
+})
+
 app.post('/api/user/login', (req, res) => {
     const username = req.body.username;
     const password = hashPass(req.body.password);
     connection.query(`SELECT p.id, p.full_name, p.email FROM account a, profile_data p WHERE username='${username}' AND pass='${password}' AND a.id = p.account_id`, (err, data) => {
         if (err) {
-            throw err;
+            res.send({
+                statusCode: 500,
+                responseData: err,
+            })
         } else {
             const userData = data;
             if (userData.length > 0) {
@@ -54,15 +124,19 @@ app.post('/api/user/login', (req, res) => {
                         res.status(500).json("Error when signin")
                     } else {
                         if (result.affectedRows > 0) {
-                            res.status(200).json({
+                            res.send({
+                                statusCode: 200,
+                                responseData: 'Sign In Successfully',
                                 userData: userData[0],
-                                msg: 'Login Successfully'
                             })
                         }
                     }
                 })
             } else {
-                res.status(404).json("Username or password is incorrect")
+                res.send({
+                    statusCode: 404,
+                    responseData: 'Username or password is incorrect',
+                })
             }
         }
     })
@@ -232,6 +306,24 @@ app.delete('/api/todo/delete', (req, res) => {
                 res.send({
                     statusCode: 200,
                     responseData: 'Delete work successfully'
+                })
+            }
+        }
+    })
+})
+
+app.put('/api/user/signout', (req, res) => {
+    connection.query(`UPDATE account SET using_status=0`, (err, result) => {
+        if (err) {
+            res.send({
+                statusCode: 500,
+                responseData: err
+            })
+        } else {
+            if (result.affectedRows > 0) {
+                res.send({
+                    statusCode: 200,
+                    responseData: 'Sign Out Successfully'
                 })
             }
         }
