@@ -3,6 +3,7 @@ const mysql = require("mysql2")
 const app = express();
 const cors = require("cors");
 const crypto = require("crypto");
+require('dotenv').config();
 
 const PORT = 8080;
 
@@ -16,9 +17,9 @@ app.use(express.urlencoded({ limit: '200mb', extended: true }));
 const connection = mysql.createPool({
     host: 'gateway01.us-east-1.prod.aws.tidbcloud.com',
     port: 4000,
-    user: '8fQiJvi8jQBZMD3.root',
-    password: 'VhRD4nDFPlVlT3hs',
-    database: 'todo',
+    user: process.env.DATABASE_USER,
+    password: process.env.DATABASE_PASSWORD,
+    database: process.env.DATABASE_NAME,
     ssl: {
         minVersion: 'TLSv1.2',
         rejectUnauthorized: true
