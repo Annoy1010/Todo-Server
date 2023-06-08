@@ -43,8 +43,8 @@ app.get('/api/user', (req, res) => {
 app.post('/api/user/create', (req, res) => {
     const { username, email, full_name, pass } = req.body;
 
-    const createNewProfile = (id) => {
-        connection.query(`INSERT INTO profile_data (full_name, email, account_id) VALUE ('${full_name}', '${email}', ${id})`, (err, result) => {
+    const createMyTodoSpace = (id) => {
+        connection.query(`INSERT INTO my_todo (profile_id) VALUE (${id})`, (err, result) => {
             if (err) {
                 res.send({
                     statusCode: 500,
@@ -56,6 +56,21 @@ app.post('/api/user/create', (req, res) => {
                         statusCode: 200,
                         responseData: 'Sign Up Successfully'
                     })
+                }
+            }
+        })
+    }
+
+    const createNewProfile = (id) => {
+        connection.query(`INSERT INTO profile_data (full_name, email, account_id) VALUE ('${full_name}', '${email}', ${id})`, (err, result) => {
+            if (err) {
+                res.send({
+                    statusCode: 500,
+                    responseData: err
+                })
+            } else {
+                if (result.affectedRows > 0) {
+                    createMyTodoSpace(id);
                 }
             }
         })
@@ -144,30 +159,43 @@ app.post('/api/user/login', (req, res) => {
 
 app.get('/api/todo/all', (req, res) => {
     const profile_id = req.query.profile_id;
+    const search_input = req.query.search_input;
     const all = req.query.all === 'true' ? true : false;
     const active = req.query.active  === 'true' ? true : false;
     const completed = req.query.completed  === 'true' ? true : false;
     const expired = req.query.expired  === 'true' ? true : false;
 
+    const filterByTodoName = (todos) => {
+        if (search_input !== '') {
+            const todoList = todos.filter(todo => todo.todo_name.toLowerCase().includes(search_input.toLowerCase()))
+            res.send({
+                statusCode: 200,
+                responseData: todoList
+            })
+        } else {
+            res.send({
+                statusCode: 200,
+                responseData: todos
+            })
+        }
+    }
+
     const getTodoList = () => {
-        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.profile_id=${profile_id} ORDER BY t.deadline DESC`, (err, result) => {
+        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.id = t.my_todo_id AND m.profile_id=${profile_id} ORDER BY t.deadline DESC`, (err, result) => {
             if (err) {
                 res.send({
                     statusCode: 500,
                     responseData: err.toString()
                 })
             } else {
-                res.send({
-                    statusCode: 200,
-                    responseData: result
-                })
+                filterByTodoName(result)
             }
         })
     }
 
     const getActiveTodoList = () => {
         const now = new Date();
-        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.profile_id=${profile_id} AND t.is_active=1 AND t.is_completed=0 ORDER BY t.deadline DESC`, (err, result) => {
+        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.id = t.my_todo_id AND m.profile_id=${profile_id} AND t.is_active=1 AND t.is_completed=0 ORDER BY t.deadline DESC`, (err, result) => {
             if (err) {
                 res.send({
                     statusCode: 500,
@@ -178,33 +206,27 @@ app.get('/api/todo/all', (req, res) => {
                     const deadline = new Date(Date.parse(item.deadline));
                     return deadline > now
                 });
-                res.send({
-                    statusCode: 200,
-                    responseData: activeResult
-                })
+                filterByTodoName(activeResult)
             }
         })
     }
 
     const getCompletedTodoList = () => {
-        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.profile_id=${profile_id} AND t.is_completed=1 AND t.is_active=0 ORDER BY t.deadline DESC`, (err, result) => {
+        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.id = t.my_todo_id AND m.profile_id=${profile_id} AND t.is_completed=1 AND t.is_active=0 ORDER BY t.deadline DESC`, (err, result) => {
             if (err) {
                 res.send({
                     statusCode: 500,
                     responseData: err.toString()
                 })
             } else {
-                res.send({
-                    statusCode: 200,
-                    responseData: result
-                })
+                filterByTodoName(result)
             }
         })
     }
 
     const getExpiredTodoList = () => {
         const now = new Date();
-        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.profile_id=${profile_id} AND t.is_completed=0 AND t.is_active=1 ORDER BY t.deadline DESC`, (err, result) => {
+        connection.query(`SELECT t.id, t.todo_name, t.created_at, t.deadline, t.is_active, t.is_completed FROM my_todo m, todo_detail t WHERE m.id = t.my_todo_id AND m.profile_id=${profile_id} AND t.is_completed=0 AND t.is_active=1 ORDER BY t.deadline DESC`, (err, result) => {
             if (err) {
                 res.send({
                     statusCode: 500,
@@ -215,10 +237,7 @@ app.get('/api/todo/all', (req, res) => {
                     const deadline = new Date(Date.parse(item.deadline));
                     return deadline < now
                 });
-                res.send({
-                    statusCode: 200,
-                    responseData: expiredResult
-                })
+                filterByTodoName(expiredResult);
             }
         })
     }
@@ -288,6 +307,32 @@ app.put('/api/todo/update', (req, res) => {
             res.send({
                 statusCode: 200,
                 responseData: 'Update work successfully'
+            })
+        }
+    })
+})
+
+app.put('/api/todo/detail/update', (req, res) => {
+    const id = req.body.id;
+    const todo_name = req.body.todo_name;
+    const deadline = req.body.deadline;
+
+    const formattedDate = date => {
+        const converted = new Date(Date.parse(date));
+        return `${converted.getUTCFullYear()}/${converted.getMonth()+1}/${converted.getDate()}`;
+    }
+
+    connection.query(`UPDATE todo_detail SET todo_name = '${todo_name}', deadline = '${formattedDate(deadline)}' WHERE id=${id}`, (err, result) => {
+        if (err) {
+            res.send({
+                statusCode: 500,
+                responseData: err.toString()
+            })
+        } 
+        if (result.affectedRows > 0) {
+            res.send({
+                statusCode: 200,
+                responseData: 'Update todo name successfully'
             })
         }
     })
