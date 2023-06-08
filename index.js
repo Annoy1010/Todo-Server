@@ -140,6 +140,7 @@ app.post('/api/user/login', (req, res) => {
                         res.status(500).json("Error when signin")
                     } else {
                         if (result.affectedRows > 0) {
+                            console.log(userData)
                             res.send({
                                 statusCode: 200,
                                 responseData: 'Sign In Successfully',
@@ -165,6 +166,8 @@ app.get('/api/todo/all', (req, res) => {
     const active = req.query.active  === 'true' ? true : false;
     const completed = req.query.completed  === 'true' ? true : false;
     const expired = req.query.expired  === 'true' ? true : false;
+
+    console.log(profile_id)
 
     const filterByTodoName = (todos) => {
         if (search_input !== '') {
